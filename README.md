@@ -157,7 +157,7 @@ JWT_SECRET="your-super-secret-jwt-key-here"
 PORT=5000
 
 # Faculty registration passcode (shared only with real faculty members)
-REGISTRATION_SECRET="CHRIST_FACULTY_2026"
+REGISTRATION_SECRET="your-secret-faculty-passcode-here"
 
 # Only emails ending with this domain can register as teachers
 ALLOWED_EMAIL_DOMAIN="@christuniversity.in"
