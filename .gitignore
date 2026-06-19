@@ -1,0 +1,22 @@
+# Dependency folders
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Environment files / Secrets
+.env
+backend/.env
+
+# Build outputs
+frontend/dist/
+frontend/dist-ssr/
+
+# Teacher uploads (ignore uploaded timetables, keep directory structure)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Logs and system files
+*.log
+.DS_Store
+.idea/
+.vscode/

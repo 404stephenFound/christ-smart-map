@@ -1,0 +1,35 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Teacher {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  designation  String
+  department   String
+  cabinNumber  String
+  status       String    @default("AVAILABLE") // AVAILABLE, IN_CLASS, IN_MEETING, PHD_VIVA, AWAY
+  statusNotice String?
+  timetableUrl String?
+  scheduleData Json?     // To store structural weekly schedule if entered directly
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  chatLogs     ChatLog[]
+}
+
+model ChatLog {
+  id               String   @id @default(uuid())
+  query            String
+  matchedTeacherId String?
+  teacher          Teacher? @relation(fields: [matchedTeacherId], references: [id])
+  intent           String?
+  createdAt        DateTime @default(now())
+}
+```
