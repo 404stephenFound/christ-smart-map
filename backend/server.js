@@ -80,7 +80,7 @@ app.use((err, req, res, next) => {
 // Initialize database, then start the server
 initializeDatabase().then(() => {
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }).catch((err) => {
   console.error('Fatal: Database failed to initialize:', err);

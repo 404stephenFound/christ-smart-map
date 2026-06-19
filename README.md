@@ -1,4 +1,4 @@
-# ChristSmart Cabin Finder 🎓
+# ChristSmart Cabin Finder
 
 > **Real-Time Teacher Location & Availability Assistant for Christ University**
 
@@ -6,9 +6,9 @@ A full-stack web application that allows students to instantly locate any facult
 
 ---
 
-## ✨ Features
+## Features
 
-### 🤖 Student Chatbot Interface
+### Student Chatbot Interface
 - **Natural Language Search** — Ask questions like *"Where is Dr. Smith?"*, *"Who is in cabin 402?"*, or *"Show me CSE faculty"*
 - **Fuzzy Name Matching** — Uses a Levenshtein distance algorithm to match names even with typos or partial input
 - **Department Filtering** — Sidebar filter lets students browse all teachers by department
@@ -17,7 +17,7 @@ A full-stack web application that allows students to instantly locate any facult
 - **Greeting Recognizer** — Smart greeting detection (`hi`, `hello`, `hey`, etc.) returns a friendly welcome
 - **Clean, Professional Responses** — All bot replies strip emojis and markdown formatting for a professional look
 
-### 👨‍🏫 Teacher Portal (Authenticated)
+### Teacher Portal (Authenticated)
 - **Secure Registration** — Faculty-only registration enforced by:
   - A **Faculty Signup Passcode** (`REGISTRATION_SECRET`)
   - An **email domain restriction** (only `@christuniversity.in` emails allowed)
@@ -27,19 +27,19 @@ A full-stack web application that allows students to instantly locate any facult
   - `AVAILABLE` · `IN_CLASS` · `IN_MEETING` · `PHD_VIVA` · `AWAY`
 - **Timetable Upload** — Upload PDF or image timetable files (max 5MB)
 - **Smart PDF Parsing** — On PDF upload, the server extracts course codes (e.g. `CS101`, `CIVIL302`) and auto-populates the digital schedule grid
-- **Digital Schedule Builder** — Interactive 6×6 grid (Mon–Sat × P1–P6) for manually entering course slots
+- **Digital Schedule Builder** — Interactive 6x6 grid (Mon–Sat x P1–P6) for manually entering course slots
 - **Saturday Half-Day** — Saturday afternoons (P4, P5, P6) are automatically locked as `HALF DAY`
 - **Profile Management** — Update name, designation, department, block, and room number
 
-### 🎨 Design System
-- **Dark / Light Mode Toggle** — System preference–aware theme with one-click toggle
+### Design System
+- **Dark / Light Mode Toggle** — System preference-aware theme with one-click toggle
 - **Minimalist Design** — Clean glassmorphism cards, soft gradients, and micro-animations
 - **Responsive Layout** — Adapts across all screen sizes
 - **Logged-In Teacher Display** — The header always shows which teacher is currently signed in
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 chatbot/
@@ -70,7 +70,7 @@ chatbot/
 
 ---
 
-## ⚙️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -90,7 +90,7 @@ chatbot/
 
 ---
 
-## 📋 Requirements
+## Requirements
 
 ### System Requirements
 - **Node.js** `>= 18.x`
@@ -123,7 +123,7 @@ chatbot/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Clone the Repository
 ```bash
@@ -163,7 +163,7 @@ REGISTRATION_SECRET="your-secret-faculty-passcode-here"
 ALLOWED_EMAIL_DOMAIN="@christuniversity.in"
 ```
 
-> ⚠️ **Never commit your `.env` file.** It is excluded via `.gitignore`.
+> **Note:** Never commit your `.env` file. It is excluded via `.gitignore`.
 
 ### 4. Install & Start the Backend
 
@@ -192,9 +192,9 @@ The frontend will start at **http://localhost:5173**
 
 ---
 
-## 🔐 Security Architecture
+## Security Architecture
 
-### Registration Controls (3 Layers)
+### Registration Controls (4 Layers)
 
 | Layer | Check | How |
 |---|---|---|
@@ -220,7 +220,7 @@ The frontend will start at **http://localhost:5173**
 
 ---
 
-## 🧩 API Endpoints
+## API Endpoints
 
 ### Auth Routes (`/api/auth`)
 | Method | Endpoint | Auth Required | Description |
@@ -228,17 +228,17 @@ The frontend will start at **http://localhost:5173**
 | POST | `/register` | No | Register a new teacher (with passcode + domain validation) |
 | POST | `/login` | No | Login and receive a JWT cookie |
 | POST | `/logout` | No | Clear the auth cookie |
-| GET | `/me` | ✅ Yes | Fetch the current logged-in teacher's profile |
+| GET | `/me` | Yes | Fetch the current logged-in teacher's profile |
 
 ### Teacher Routes (`/api/teachers`)
 | Method | Endpoint | Auth Required | Description |
 |---|---|---|---|
 | GET | `/` | No | List all teachers (public directory) |
 | GET | `/:id` | No | Fetch a single teacher by ID |
-| PUT | `/status` | ✅ Yes | Update status and optional notice message |
-| PUT | `/profile` | ✅ Yes | Update name, designation, department, cabin |
-| PUT | `/schedule` | ✅ Yes | Update the digital timetable schedule (JSONB) |
-| POST | `/upload-timetable` | ✅ Yes | Upload a PDF/image timetable and auto-parse it |
+| PUT | `/status` | Yes | Update status and optional notice message |
+| PUT | `/profile` | Yes | Update name, designation, department, cabin |
+| PUT | `/schedule` | Yes | Update the digital timetable schedule (JSONB) |
+| POST | `/upload-timetable` | Yes | Upload a PDF/image timetable and auto-parse it |
 
 ### Chat Route (`/api/chat`)
 | Method | Endpoint | Auth Required | Description |
@@ -247,7 +247,7 @@ The frontend will start at **http://localhost:5173**
 
 ---
 
-## 📅 Timetable System
+## Timetable System
 
 ### Period Timings (Mon–Fri)
 | Period | Time |
@@ -269,11 +269,11 @@ When a PDF is uploaded, the backend:
 1. Extracts raw text using `pdf-parse`
 2. Scans for course code patterns matching `[A-Za-z]{2,5} + digits` (e.g. `CS101`, `CIVIL302`, `ADSE-204`)
 3. Distributes detected courses across the Mon–Sat period grid sequentially
-4. Falls back to a department-code–based template if no courses are detected
+4. Falls back to a department-code-based template if no courses are detected
 
 ---
 
-## 🏢 Supported Departments
+## Supported Departments
 
 `CSE` · `ADSE` · `Electronics` · `Electrical` · `Mechanical` · `Robotics & Mechatronics` · `Psychology` · `BBA` · `Sciences & Humanities` · `Civil`
 
@@ -282,7 +282,7 @@ When a PDF is uploaded, the backend:
 
 ---
 
-## 💬 Chatbot Query Examples
+## Chatbot Query Examples
 
 ```
 "Where is Dr. Anjali's cabin?"
@@ -297,7 +297,7 @@ When a PDF is uploaded, the backend:
 
 ---
 
-## 🔄 Application Flow
+## Application Flow
 
 ```
 Student Query
@@ -318,19 +318,19 @@ POST /api/chat
 
 ---
 
-## 🛡️ Environment Variables Reference
+## Environment Variables Reference
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `DATABASE_URL` | ✅ | — | Full PostgreSQL connection string |
-| `JWT_SECRET` | ✅ | — | Secret key for signing JWT tokens |
+| `DATABASE_URL` | Yes | — | Full PostgreSQL connection string |
+| `JWT_SECRET` | Yes | — | Secret key for signing JWT tokens |
 | `PORT` | No | `5000` | Express server port |
-| `REGISTRATION_SECRET` | ✅ | — | Faculty-only passcode for registration |
-| `ALLOWED_EMAIL_DOMAIN` | ✅ | — | Email domain suffix restriction (e.g. `@christuniversity.in`) |
+| `REGISTRATION_SECRET` | Yes | — | Faculty-only passcode for registration |
+| `ALLOWED_EMAIL_DOMAIN` | Yes | — | Email domain suffix restriction (e.g. `@christuniversity.in`) |
 
 ---
 
-## 📁 Database Schema
+## Database Schema
 
 ### `teachers`
 | Column | Type | Description |
@@ -367,17 +367,16 @@ POST /api/chat
 
 ---
 
-## 🚧 Known Limitations & Future Improvements
+## Known Limitations & Future Improvements
 
-- [ ] `backend/routes/auth.js` is committed as an empty placeholder — the full implementation resides in the running server. Consider adding the complete file to the repository.
-- [ ] No admin dashboard for managing the `allowed_teachers` allowlist yet (must be managed via direct DB inserts)
+- [ ] No admin dashboard for managing the `allowed_teachers` allowlist (must be managed via direct DB inserts)
 - [ ] No real-time WebSocket notifications when a teacher updates their status
 - [ ] PDF parsing is text-based only — scanned image PDFs will fall back to the smart mock template
-- [ ] Production deployment would require setting `secure: true` on cookies (requires HTTPS)
+- [ ] Production deployment requires setting `secure: true` on cookies (requires HTTPS)
 
 ---
 
-## 👤 Author
+## Author
 
 **Stephen Akash J**
 Christ University — Engineering Department
@@ -385,6 +384,6 @@ GitHub: [@404stephenFound](https://github.com/404stephenFound)
 
 ---
 
-## 📄 License
+## License
 
 This project is for academic and institutional use within Christ University.

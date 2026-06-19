@@ -275,7 +275,7 @@ const ChatWindow = ({ onViewTimetable, API_URL }) => {
                         
                         {t.status_notice && (
                           <div className="teacher-detail-row" style={{ fontStyle: 'italic', background: 'rgba(255,255,255,0.02)', padding: '0.5rem', borderRadius: '4px', borderLeft: '2px solid var(--primary)' }}>
-                            <span>👉 "{t.status_notice}"</span>
+                            <span>Notice: "{t.status_notice}"</span>
                           </div>
                         )}
 

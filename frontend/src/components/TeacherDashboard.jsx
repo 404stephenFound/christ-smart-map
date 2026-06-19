@@ -228,11 +228,11 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
   };
 
   const statusOptions = [
-    { id: 'AVAILABLE', title: 'Available in Cabin', icon: '🟢', color: 'available' },
-    { id: 'IN_CLASS', title: 'In Class', icon: '🟡', color: 'class' },
-    { id: 'IN_MEETING', title: 'In Meeting', icon: '🟡', color: 'meeting' },
-    { id: 'PHD_VIVA', title: 'Conducting PhD Viva', icon: '🎓', color: 'phd_viva' },
-    { id: 'AWAY', title: 'Away / Gone Out', icon: '🔴', color: 'away' },
+    { id: 'AVAILABLE', title: 'Available in Cabin', color: 'available' },
+    { id: 'IN_CLASS', title: 'In Class', color: 'class' },
+    { id: 'IN_MEETING', title: 'In Meeting', color: 'meeting' },
+    { id: 'PHD_VIVA', title: 'Conducting PhD Viva', color: 'phd_viva' },
+    { id: 'AWAY', title: 'Away / Gone Out', color: 'away' },
   ];
 
   return (
@@ -254,9 +254,7 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                 className={`status-select-card ${opt.color} ${status === opt.id ? 'active' : ''}`}
                 onClick={() => handleStatusChange(opt.id)}
               >
-                <div className="status-icon-container">
-                  <span style={{ fontSize: '1.25rem' }}>{opt.icon}</span>
-                </div>
+
                 <span className="status-title">{opt.title}</span>
               </div>
             ))}
