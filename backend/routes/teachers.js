@@ -3,9 +3,13 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import pdf from 'pdf-parse';
+import { createRequire } from 'module';
 import pool from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+
+// pdf-parse is a CommonJS package — must be loaded via createRequire in ESM projects
+const require = createRequire(import.meta.url);
+const pdf = require('pdf-parse');
 
 const router = express.Router();
 
