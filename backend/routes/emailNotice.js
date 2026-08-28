@@ -76,6 +76,28 @@ router.post('/scan', requireAuth, async (req, res) => {
     }
     
     const { email_oauth_refresh_token_enc, email_scan_enabled } = result.rows[0];
+
+    // Check for mock testing parameter
+    if (req.query.mock === 'true') {
+      const mockResult = {
+        matchFound: true,
+        suggestedNotice: 'Away - Coordinating National Science Exhibition',
+        sourceType: 'text'
+      };
+      
+      await pool.query(
+        `INSERT INTO notice_scan_logs (teacher_id, source_type, match_found, suggested_notice)
+         VALUES ($1, $2, $3, $4)`,
+        [req.teacherId, mockResult.sourceType, mockResult.matchFound, mockResult.suggestedNotice]
+      );
+      
+      await pool.query(
+        'UPDATE teachers SET last_email_scan_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [req.teacherId]
+      );
+      
+      return res.json(mockResult);
+    }
     
     if (!email_scan_enabled || !email_oauth_refresh_token_enc) {
       return res.status(400).json({ error: 'Email integration is not connected.' });

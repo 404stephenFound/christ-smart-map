@@ -99,10 +99,13 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
     }
   };
 
-  const handleScanEmail = async () => {
+  const handleScanEmail = async (mock = false) => {
     setScanning(true);
     try {
-      const response = await fetch(`${API_URL}/teachers/email/scan`, {
+      const url = mock 
+        ? `${API_URL}/teachers/email/scan?mock=true` 
+        : `${API_URL}/teachers/email/scan`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -378,7 +381,7 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <button 
                       type="button" 
-                      onClick={handleScanEmail} 
+                      onClick={() => handleScanEmail(false)} 
                       disabled={scanning} 
                       className="btn btn-secondary" 
                       style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px dashed var(--primary)', background: 'transparent', color: 'var(--primary)' }}
@@ -395,15 +398,27 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                     </button>
                   </div>
                 ) : (
-                  <button 
-                    type="button" 
-                    onClick={handleConnectEmail} 
-                    disabled={connecting} 
-                    className="btn btn-secondary" 
-                    style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px' }}
-                  >
-                    {connecting ? 'Connecting...' : 'Connect Google Email'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      type="button" 
+                      onClick={handleConnectEmail} 
+                      disabled={connecting} 
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px' }}
+                    >
+                      {connecting ? 'Connecting...' : 'Connect Google Email'}
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleScanEmail(true)} 
+                      disabled={scanning} 
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px dashed var(--primary)', background: 'transparent', color: 'var(--primary)' }}
+                    >
+                      <Sparkles size={12} style={scanning ? { animation: 'spin 1.5s linear infinite' } : {}} />
+                      {scanning ? 'Testing...' : 'Test Mock Scan'}
+                    </button>
+                  </div>
                 )}
               </div>
 
