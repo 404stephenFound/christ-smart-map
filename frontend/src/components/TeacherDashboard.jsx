@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, CheckCircle, Clock, FileText, UploadCloud, MapPin, 
-  Save, AlertCircle, Compass, Grid, BookOpen, Briefcase
+  Save, AlertCircle, Compass, Grid, BookOpen, Briefcase,
+  Mail, Sparkles, RefreshCw
 } from 'lucide-react';
 
 const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
@@ -37,6 +38,93 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
     room: initialCabin.room,
   });
   const [updatingProfile, setUpdatingProfile] = useState(false);
+
+  const [scanning, setScanning] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('connected') === 'true') {
+      showToast('Google email connected successfully!', 'success');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const handleConnectEmail = async () => {
+    setConnecting(true);
+    try {
+      const response = await fetch(`${API_URL}/teachers/email/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        showToast(data.error || 'Failed to generate connection link', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Network error connecting email', 'error');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnectEmail = async () => {
+    if (!window.confirm('Are you sure you want to disconnect your Google email integration?')) {
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/teachers/email/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (response.ok) {
+        onUpdateTeacher({
+          ...teacher,
+          email_scan_enabled: false,
+          last_email_scan_at: null
+        });
+        showToast('Email integration disconnected successfully', 'success');
+      } else {
+        showToast(data.error || 'Failed to disconnect email', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Network error disconnecting email', 'error');
+    }
+  };
+
+  const handleScanEmail = async () => {
+    setScanning(true);
+    try {
+      const response = await fetch(`${API_URL}/teachers/email/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (response.ok) {
+        if (data.matchFound && data.suggestedNotice) {
+          setStatusNotice(data.suggestedNotice);
+          showToast(`Event notice detected! Please review and click save.`, 'success');
+        } else {
+          showToast('No relevant event notifications found in the last 48 hours.', 'info');
+        }
+      } else {
+        showToast(data.error || 'Failed to scan emails', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Network error scanning emails', 'error');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   // Sync state if teacher prop updates
   useEffect(() => {
@@ -276,7 +364,50 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                   <Save size={16} />
                 </button>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+
+              {/* Google Email Scan Panel */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', padding: '0.6rem 0.8rem', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Mail size={16} color="var(--primary)" />
+                  <span style={{ fontSize: '0.8rem', fontWeight: '500', color: 'var(--text-secondary)' }}>
+                    {teacher.email_scan_enabled ? 'Google Email Linked' : 'Auto-detect from email'}
+                  </span>
+                </div>
+                
+                {teacher.email_scan_enabled ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button 
+                      type="button" 
+                      onClick={handleScanEmail} 
+                      disabled={scanning} 
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px dashed var(--primary)', background: 'transparent', color: 'var(--primary)' }}
+                    >
+                      <Sparkles size={12} style={scanning ? { animation: 'spin 1.5s linear infinite' } : {}} />
+                      {scanning ? 'Scanning...' : 'Scan Now'}
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={handleDisconnectEmail} 
+                      style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', padding: '0.25rem' }}
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    type="button" 
+                    onClick={handleConnectEmail} 
+                    disabled={connecting} 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px' }}
+                  >
+                    {connecting ? 'Connecting...' : 'Connect Google Email'}
+                  </button>
+                )}
+              </div>
+
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'block' }}>
                 This notice will be served by the AI chatbot to students querying about you.
               </span>
             </div>

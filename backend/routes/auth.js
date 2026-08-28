@@ -155,7 +155,7 @@ router.get('/me', requireAuth, async (req, res) => {
     }
 
     const teacher = result.rows[0];
-    const { password_hash, ...teacherData } = teacher;
+    const { password_hash, email_oauth_refresh_token_enc, ...teacherData } = teacher;
 
     res.json(teacherData);
   } catch (error) {

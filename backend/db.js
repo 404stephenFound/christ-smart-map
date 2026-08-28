@@ -96,6 +96,26 @@ export const initializeDatabase = async () => {
       )
     `);
 
+    // Add optional email notice scan columns to teachers table if they don't exist
+    await pool.query(`
+      ALTER TABLE teachers 
+      ADD COLUMN IF NOT EXISTS email_oauth_refresh_token_enc TEXT,
+      ADD COLUMN IF NOT EXISTS email_scan_enabled BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS last_email_scan_at TIMESTAMP;
+    `);
+
+    // Create notice_scan_logs table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notice_scan_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        teacher_id UUID REFERENCES teachers(id) ON DELETE CASCADE,
+        scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        source_type VARCHAR(50),
+        match_found BOOLEAN,
+        suggested_notice VARCHAR(255)
+      )
+    `);
+
     console.log('Database tables verified/created successfully.');
   } catch (error) {
     console.error('Error initializing tables:', error);

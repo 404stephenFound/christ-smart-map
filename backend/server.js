@@ -10,6 +10,7 @@ import { initializeDatabase } from './db.js';
 import authRoutes from './routes/auth.js';
 import teacherRoutes from './routes/teachers.js';
 import chatRoutes from './routes/chat.js';
+import emailNoticeRoutes from './routes/emailNotice.js';
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/teachers/email', emailNoticeRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/chat', chatRoutes);
 
