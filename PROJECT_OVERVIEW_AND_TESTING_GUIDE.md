@@ -139,6 +139,7 @@ If you want to test live Gmail scanning:
 
 | File Path | Description |
 | :--- | :--- |
+| `API_KEYS_AND_ENV_SETUP_GUIDE.md` | Complete guide on how to acquire and generate every `.env` key |
 | `backend/routes/emailNotice.js` | OAuth callback, scan endpoints (`/scan`), and token disconnect |
 | `backend/services/emailScanner.js` | Gmail API integration & query compilation |
 | `backend/services/eventClassifier.js` | NLP rule-based keyword & event role matcher |
