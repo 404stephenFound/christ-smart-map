@@ -30,6 +30,7 @@ A full-stack web application that allows students to instantly locate any facult
 - **Digital Schedule Builder** — Interactive 6x6 grid (Mon–Sat x P1–P6) for manually entering course slots
 - **Saturday Half-Day** — Saturday afternoons (P4, P5, P6) are automatically locked as `HALF DAY`
 - **Profile Management** — Update name, designation, department, block, and room number
+- **Email Notice Auto-Detection (Optional)** — Connect an institutional Gmail account and let the server detect events you are running, then suggest a status notice instead of typing one
 
 ### Design System
 - **Dark / Light Mode Toggle** — System preference-aware theme with one-click toggle
@@ -240,6 +241,14 @@ The frontend will start at **http://localhost:5173**
 | PUT | `/schedule` | Yes | Update the digital timetable schedule (JSONB) |
 | POST | `/upload-timetable` | Yes | Upload a PDF/image timetable and auto-parse it |
 
+### Email Notice Routes (`/api/teachers/email`)
+| Method | Endpoint | Auth Required | Description |
+|---|---|---|---|
+| POST | `/connect` | Yes | Returns the Google OAuth consent URL |
+| GET | `/callback` | Yes | OAuth redirect handler; encrypts and stores the refresh token |
+| POST | `/scan` | Yes | Scans recent mail and **returns a suggestion** (never saves it) |
+| POST | `/disconnect` | Yes | Revokes the Google token and wipes it from the database |
+
 ### Chat Route (`/api/chat`)
 | Method | Endpoint | Auth Required | Description |
 |---|---|---|---|
@@ -270,6 +279,61 @@ When a PDF is uploaded, the backend:
 2. Scans for course code patterns matching `[A-Za-z]{2,5} + digits` (e.g. `CS101`, `CIVIL302`, `ADSE-204`)
 3. Distributes detected courses across the Mon–Sat period grid sequentially
 4. Falls back to a department-code-based template if no courses are detected
+
+
+---
+
+## Email Notice Auto-Detection (Optional)
+
+Coordinating an event normally means remembering to type a status notice. This
+optional feature reads your own inbox and *suggests* one instead.
+
+**Entirely opt-in.** Nothing is scanned until you connect an account, and nothing is
+saved until you review the suggestion and apply it.
+
+### How a scan works
+
+1. Click **Connect Gmail** and grant read-only access.
+2. Click **Scan Now**. The server reads recent mail (last 48 hours).
+3. Each message is examined as: subject and body text, image attachments and inline
+   posters (OCR), and PDF circulars (`pdf-parse`).
+4. Extracted text goes to a local rule-based classifier looking for a **role keyword**
+   (Faculty Coordinator, Convener, Resource Person, POC, …) with an **event word**
+   nearby and — critically — **one of your own name variations in close proximity**.
+5. On a match it builds a notice such as
+   `Away - Coordinating National Symposium on AI at Central Block Auditorium (15th - 16th October 2026)`
+   and returns it for review, along with the role, venue, date and source file.
+
+### Why the name check matters
+
+A circular usually lists several coordinators. Without identity matching, a poster
+naming *a colleague* would set *your* status. A role keyword only counts when your own
+name sits near it.
+
+### OCR and vision engines
+
+| Engine | When used | Notes |
+|---|---|---|
+| `tesseract.js` | Default | Fully local. No network, no API cost. |
+| Gemini Vision | Only if `GEMINI_API_KEY` is set | Better on dense posters. **Sends the image to Google.** |
+
+### Privacy
+
+- Gmail scope is **read-only** (`gmail.readonly`).
+- Email bodies, images and PDFs are held in memory and discarded when the scan returns.
+- Only the derived notice string and a boolean reach `notice_scan_logs` — never raw content.
+- The OAuth refresh token is stored **AES-256-GCM encrypted**, decrypted only in memory.
+- **Disconnect** revokes the token with Google and wipes it.
+
+> This is a private server-side scan, not end-to-end encryption: the server must read
+> the message to classify it. It is deliberately not described as E2EE.
+
+### Tests
+
+```bash
+cd backend
+npm test
+```
 
 ---
 
@@ -327,6 +391,11 @@ POST /api/chat
 | `PORT` | No | `5000` | Express server port |
 | `REGISTRATION_SECRET` | Yes | — | Faculty-only passcode for registration |
 | `ALLOWED_EMAIL_DOMAIN` | Yes | — | Email domain suffix restriction (e.g. `@christuniversity.in`) |
+| `GOOGLE_CLIENT_ID` | No | — | Google OAuth client ID (email scanning only) |
+| `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth client secret |
+| `TOKEN_ENCRYPTION_KEY` | No | — | Secret used to AES-256-GCM encrypt stored OAuth tokens |
+| `FRONTEND_URL` | No | `http://localhost:5173` | Where the browser returns after Google sign-in |
+| `GEMINI_API_KEY` | No | — | Enables Gemini Vision for posters; blank means local OCR only |
 
 ---
 
@@ -357,6 +426,19 @@ POST /api/chat
 | `matched_teacher_id` | UUID (FK) | Teacher matched (if any) |
 | `intent` | VARCHAR(100) | Detected intent type |
 | `created_at` | TIMESTAMP | Query time |
+
+### `notice_scan_logs`
+| Column | Type | Description |
+|---|---|---|
+| `id` | UUID (PK) | Log entry ID |
+| `teacher_id` | UUID (FK) | Teacher who ran the scan |
+| `scanned_at` | TIMESTAMP | When the scan ran |
+| `source_type` | VARCHAR(50) | `text` / `poster` / `pdf` |
+| `match_found` | BOOLEAN | Whether an event was detected |
+| `suggested_notice` | VARCHAR(255) | The derived notice — never raw email content |
+
+> The `teachers` table also gains `email_oauth_refresh_token_enc`, `email_scan_enabled`
+> and `last_email_scan_at` for this feature.
 
 ### `allowed_teachers`
 | Column | Type | Description |

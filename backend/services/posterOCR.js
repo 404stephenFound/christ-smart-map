@@ -40,10 +40,30 @@ export const extractTextFromPDF = async (pdfBuffer) => {
   if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer)) return '';
 
   try {
-    const data = await pdfParse(pdfBuffer);
-    return data && data.text ? data.text : '';
+    // pdf-parse v2 exports a PDFParse class; v1 exported a callable function.
+    // Calling the v2 module directly throws, which silently yielded empty text
+    // for every circular.
+    if (pdfParse && typeof pdfParse.PDFParse === 'function') {
+      const parser = new pdfParse.PDFParse({ data: new Uint8Array(pdfBuffer) });
+      try {
+        const result = await parser.getText();
+        return result && result.text ? result.text : '';
+      } finally {
+        if (typeof parser.destroy === 'function') {
+          await parser.destroy().catch(() => {});
+        }
+      }
+    }
+
+    const legacy = typeof pdfParse === 'function' ? pdfParse : pdfParse?.default;
+    if (typeof legacy === 'function') {
+      const data = await legacy(pdfBuffer);
+      return data && data.text ? data.text : '';
+    }
+
+    throw new Error('Unsupported pdf-parse module shape');
   } catch (error) {
-    console.error('Error extracting text from PDF:', error);
+    console.error('Error extracting text from PDF:', error.message);
     return '';
   }
 };

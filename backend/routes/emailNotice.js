@@ -6,6 +6,8 @@ import { getOAuth2Client, scanRecentEmails } from '../services/emailScanner.js';
 
 const router = express.Router();
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
 // Generate Google OAuth consent URL
 router.post('/connect', requireAuth, async (req, res) => {
   try {
@@ -29,7 +31,7 @@ router.post('/connect', requireAuth, async (req, res) => {
 router.get('/callback', requireAuth, async (req, res) => {
   const { code } = req.query;
   if (!code) {
-    return res.status(400).send('OAuth callback code missing.');
+    return res.redirect(`${FRONTEND_URL}/?connected=false&reason=missing_code`);
   }
   
   try {
@@ -39,8 +41,11 @@ router.get('/callback', requireAuth, async (req, res) => {
     // Exchange authorization code for access and refresh tokens
     const { tokens } = await oauth2Client.getToken(code);
     
+    // Without a refresh token we cannot scan later. Fail loudly rather than
+    // marking the account connected and breaking on the first scan.
     if (!tokens.refresh_token) {
-      console.warn('Google did not return a refresh token. Re-authorization may be needed.');
+      console.warn('Google returned no refresh token; leaving integration disconnected.');
+      return res.redirect(`${FRONTEND_URL}/?connected=false&reason=no_refresh_token`);
     }
     
     // Encrypt refresh token before storing it
@@ -55,10 +60,10 @@ router.get('/callback', requireAuth, async (req, res) => {
     );
     
     // Redirect back to frontend dashboard
-    res.redirect('http://localhost:5173/?connected=true');
+    res.redirect(`${FRONTEND_URL}/?connected=true`);
   } catch (error) {
-    console.error('OAuth Callback Error:', error);
-    res.status(500).send('OAuth Callback Error: failed to connect email integration.');
+    console.error('OAuth Callback Error:', error.message);
+    res.redirect(`${FRONTEND_URL}/?connected=false&reason=oauth_failed`);
   }
 });
 
@@ -77,62 +82,6 @@ router.post('/scan', requireAuth, async (req, res) => {
     
     const teacher = result.rows[0];
 
-    // Check for mock testing parameter
-    if (req.query.mock === 'true' || req.query.mock === 'poster' || req.query.mock === 'pdf') {
-      let mockResult;
-
-      if (req.query.mock === 'poster') {
-        mockResult = {
-          matchFound: true,
-          role: 'Faculty Coordinator',
-          eventName: 'National Symposium on Artificial Intelligence',
-          venue: 'Central Block Auditorium',
-          date: '15th - 16th October 2026',
-          suggestedNotice: 'Away - Coordinating National Symposium on Artificial Intelligence at Central Block Auditorium (15th - 16th October 2026)',
-          sourceType: 'poster',
-          sourceFileName: 'ai_symposium_poster.jpg',
-          confidence: 'high'
-        };
-      } else if (req.query.mock === 'pdf') {
-        mockResult = {
-          matchFound: true,
-          role: 'Convener',
-          eventName: 'Annual Faculty Research Conclave',
-          venue: 'Sky View Seminar Hall',
-          date: '28th November 2026',
-          suggestedNotice: 'Away - Convening Annual Faculty Research Conclave at Sky View Seminar Hall (28th November 2026)',
-          sourceType: 'pdf',
-          sourceFileName: 'Research_Conclave_Circular.pdf',
-          confidence: 'high'
-        };
-      } else {
-        mockResult = {
-          matchFound: true,
-          role: 'Coordinator',
-          eventName: 'National Science Exhibition',
-          venue: 'Main Campus Quadrangle',
-          date: 'Today',
-          suggestedNotice: 'Away - Coordinating National Science Exhibition at Main Campus Quadrangle (Today)',
-          sourceType: 'text',
-          sourceFileName: null,
-          confidence: 'medium'
-        };
-      }
-      
-      await pool.query(
-        `INSERT INTO notice_scan_logs (teacher_id, source_type, match_found, suggested_notice)
-         VALUES ($1, $2, $3, $4)`,
-        [req.teacherId, mockResult.sourceType, mockResult.matchFound, mockResult.suggestedNotice]
-      );
-      
-      await pool.query(
-        'UPDATE teachers SET last_email_scan_at = CURRENT_TIMESTAMP WHERE id = $1',
-        [req.teacherId]
-      );
-      
-      return res.json(mockResult);
-    }
-    
     if (!teacher.email_scan_enabled || !teacher.email_oauth_refresh_token_enc) {
       return res.status(400).json({ error: 'Email integration is not connected.' });
     }

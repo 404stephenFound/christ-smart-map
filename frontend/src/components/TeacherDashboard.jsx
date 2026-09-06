@@ -45,8 +45,17 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('connected') === 'true') {
+    const connected = params.get('connected');
+    if (connected === 'true') {
       showToast('Google email connected successfully!', 'success');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (connected === 'false') {
+      const reasons = {
+        no_refresh_token: 'Google did not return a refresh token. Remove the app under your Google account permissions, then connect again.',
+        oauth_failed: 'Google sign-in failed. Please try connecting again.',
+        missing_code: 'Google sign-in was cancelled.'
+      };
+      showToast(reasons[params.get('reason')] || 'Could not connect Google email.', 'error');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -100,14 +109,10 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
     }
   };
 
-  const handleScanEmail = async (mockType = null) => {
+  const handleScanEmail = async () => {
     setScanning(true);
     try {
-      let url = `${API_URL}/teachers/email/scan`;
-      if (mockType) {
-        url += `?mock=${mockType}`;
-      }
-      const response = await fetch(url, {
+      const response = await fetch(`${API_URL}/teachers/email/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -428,7 +433,7 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <button 
                       type="button" 
-                      onClick={() => handleScanEmail(null)} 
+                      onClick={handleScanEmail} 
                       disabled={scanning} 
                       className="btn btn-secondary" 
                       style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px dashed var(--primary)', background: 'transparent', color: 'var(--primary)' }}
@@ -454,17 +459,6 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                       style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px' }}
                     >
                       {connecting ? 'Connecting...' : 'Connect Gmail'}
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => handleScanEmail('poster')} 
-                      disabled={scanning} 
-                      className="btn btn-secondary" 
-                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px dashed var(--primary)', background: 'transparent', color: 'var(--primary)' }}
-                      title="Test Poster Detection"
-                    >
-                      <Sparkles size={12} style={scanning ? { animation: 'spin 1.5s linear infinite' } : {}} />
-                      {scanning ? 'Testing...' : 'Test Poster'}
                     </button>
                   </div>
                 )}
