@@ -41,6 +41,7 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
 
   const [scanning, setScanning] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [detectedNotice, setDetectedNotice] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -99,12 +100,13 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
     }
   };
 
-  const handleScanEmail = async (mock = false) => {
+  const handleScanEmail = async (mockType = null) => {
     setScanning(true);
     try {
-      const url = mock 
-        ? `${API_URL}/teachers/email/scan?mock=true` 
-        : `${API_URL}/teachers/email/scan`;
+      let url = `${API_URL}/teachers/email/scan`;
+      if (mockType) {
+        url += `?mock=${mockType}`;
+      }
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,10 +115,11 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
       const data = await response.json();
       if (response.ok) {
         if (data.matchFound && data.suggestedNotice) {
+          setDetectedNotice(data);
           setStatusNotice(data.suggestedNotice);
-          showToast(`Event notice detected! Please review and click save.`, 'success');
+          showToast(`Event notice detected from ${data.sourceType || 'email'}! Review and apply.`, 'success');
         } else {
-          showToast('No relevant event notifications found in the last 48 hours.', 'info');
+          showToast('No relevant coordinator notifications found in the last 48 hours.', 'info');
         }
       } else {
         showToast(data.error || 'Failed to scan emails', 'error');
@@ -368,12 +371,56 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                 </button>
               </div>
 
+              {/* Detected Notice Card Preview */}
+              {detectedNotice && (
+                <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(99, 102, 241, 0.08)', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: '700', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'var(--primary)', color: '#fff', textTransform: 'uppercase' }}>
+                        {detectedNotice.sourceType === 'poster' ? 'Poster Detected' : detectedNotice.sourceType === 'pdf' ? 'PDF Circular' : 'Email Notice'}
+                      </span>
+                      {detectedNotice.role && (
+                        <span style={{ fontSize: '0.7rem', fontWeight: '600', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                          {detectedNotice.role}
+                        </span>
+                      )}
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setDetectedNotice(null)} 
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.75rem', cursor: 'pointer' }}
+                    >
+                      ✕ Dismiss
+                    </button>
+                  </div>
+                  {detectedNotice.sourceFileName && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+                      File: <strong>{detectedNotice.sourceFileName}</strong>
+                    </div>
+                  )}
+                  {detectedNotice.venue && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                      Venue: <strong>{detectedNotice.venue}</strong> {detectedNotice.date ? `| ${detectedNotice.date}` : ''}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary" 
+                      style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', borderRadius: '6px' }}
+                    >
+                      Apply & Update Notice
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Google Email Scan Panel */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', padding: '0.6rem 0.8rem', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <Mail size={16} color="var(--primary)" />
                   <span style={{ fontSize: '0.8rem', fontWeight: '500', color: 'var(--text-secondary)' }}>
-                    {teacher.email_scan_enabled ? 'Google Email Linked' : 'Auto-detect from email'}
+                    {teacher.email_scan_enabled ? 'Google Email Linked' : 'Auto-detect from email/posters'}
                   </span>
                 </div>
                 
@@ -381,13 +428,13 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <button 
                       type="button" 
-                      onClick={() => handleScanEmail(false)} 
+                      onClick={() => handleScanEmail(null)} 
                       disabled={scanning} 
                       className="btn btn-secondary" 
                       style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px dashed var(--primary)', background: 'transparent', color: 'var(--primary)' }}
                     >
                       <Sparkles size={12} style={scanning ? { animation: 'spin 1.5s linear infinite' } : {}} />
-                      {scanning ? 'Scanning...' : 'Scan Now'}
+                      {scanning ? 'Scanning...' : 'Scan Inbox & Posters'}
                     </button>
                     <button 
                       type="button" 
@@ -398,7 +445,7 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <button 
                       type="button" 
                       onClick={handleConnectEmail} 
@@ -406,17 +453,18 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
                       className="btn btn-secondary" 
                       style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px' }}
                     >
-                      {connecting ? 'Connecting...' : 'Connect Google Email'}
+                      {connecting ? 'Connecting...' : 'Connect Gmail'}
                     </button>
                     <button 
                       type="button" 
-                      onClick={() => handleScanEmail(true)} 
+                      onClick={() => handleScanEmail('poster')} 
                       disabled={scanning} 
                       className="btn btn-secondary" 
                       style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px dashed var(--primary)', background: 'transparent', color: 'var(--primary)' }}
+                      title="Test Poster Detection"
                     >
                       <Sparkles size={12} style={scanning ? { animation: 'spin 1.5s linear infinite' } : {}} />
-                      {scanning ? 'Testing...' : 'Test Mock Scan'}
+                      {scanning ? 'Testing...' : 'Test Poster'}
                     </button>
                   </div>
                 )}

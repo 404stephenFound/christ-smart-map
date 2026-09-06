@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { extractTextFromImage } from './posterOCR.js';
+import { extractTextFromImage, extractTextFromPDF, extractWithGeminiVision } from './posterOCR.js';
 import { classifyEmail } from './eventClassifier.js';
 
 // Helper to get OAuth2 client
@@ -17,11 +17,11 @@ function getMessageBody(part) {
   if (part.body && part.body.data) {
     const decoded = Buffer.from(part.body.data, 'base64').toString('utf8');
     if (part.mimeType === 'text/plain') {
-      body += decoded + ' ';
+      body += decoded + '\n';
     } else if (part.mimeType === 'text/html') {
-      // Strip simple HTML tags to avoid HTML pollution in classification
+      // Strip HTML tags to extract clean text
       const plain = decoded.replace(/<[^>]*>/g, ' ');
-      body += plain + ' ';
+      body += plain + '\n';
     }
   }
   if (part.parts) {
@@ -32,34 +32,44 @@ function getMessageBody(part) {
   return body;
 }
 
-// Recursive helper to locate image attachment metadata (PNG, JPG, JPEG)
-function findImageAttachments(part, list = []) {
+// Recursive helper to locate image & PDF attachment metadata
+export function findAttachments(part, list = []) {
   if (part.body && part.body.attachmentId) {
-    const mime = part.mimeType || '';
-    if (mime.startsWith('image/')) {
+    const mime = (part.mimeType || '').toLowerCase();
+    const filename = part.filename || 'attachment';
+
+    if (mime.startsWith('image/') || /\.(png|jpe?g|webp|bmp)$/i.test(filename)) {
       list.push({
         id: part.body.attachmentId,
-        mimeType: mime,
-        filename: part.filename || 'attachment'
+        mimeType: mime || 'image/jpeg',
+        filename,
+        type: 'image'
+      });
+    } else if (mime === 'application/pdf' || /\.pdf$/i.test(filename)) {
+      list.push({
+        id: part.body.attachmentId,
+        mimeType: 'application/pdf',
+        filename,
+        type: 'pdf'
       });
     }
   }
   if (part.parts) {
     for (const subPart of part.parts) {
-      findImageAttachments(subPart, list);
+      findAttachments(subPart, list);
     }
   }
   return list;
 }
 
 /**
- * Scans the teacher's Gmail inbox for recent event/coordinator notifications.
- * Processes both text body and image attachments using OCR.
+ * Scans the teacher's Gmail inbox for recent event notifications, posters, and circulars.
  * @param {string} refreshToken - The decrypted OAuth2 refresh token.
  * @param {string} redirectUri - The Google OAuth Redirect URL.
- * @returns {Promise<object>} Result matching `{ matchFound: boolean, suggestedNotice: string|null, sourceType: string }`
+ * @param {object} teacherInfo - Logged-in teacher profile { name, department, email }.
+ * @returns {Promise<object>} Structured result matching { matchFound, suggestedNotice, role, eventName, venue, date, sourceType, sourceFileName }
  */
-export const scanRecentEmails = async (refreshToken, redirectUri) => {
+export const scanRecentEmails = async (refreshToken, redirectUri, teacherInfo = {}) => {
   const oauth2Client = getOAuth2Client(redirectUri);
   oauth2Client.setCredentials({ refresh_token: refreshToken });
   
@@ -74,7 +84,7 @@ export const scanRecentEmails = async (refreshToken, redirectUri) => {
     const listRes = await gmail.users.messages.list({
       userId: 'me',
       q: query,
-      maxResults: 10 // process last 10 messages max to keep latency bounded
+      maxResults: 15 // Process up to 15 recent messages
     });
     
     const messages = listRes.data.messages || [];
@@ -96,22 +106,10 @@ export const scanRecentEmails = async (refreshToken, redirectUri) => {
       const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject');
       const subject = subjectHeader ? subjectHeader.value : '';
       
-      // Extract Text Body
-      const bodyText = getMessageBody(payload);
-      
-      // First pass: Run classifier directly on Subject + Text Body
-      const textResult = classifyEmail(subject, bodyText);
-      if (textResult.matchFound) {
-        return {
-          matchFound: true,
-          suggestedNotice: textResult.suggestedNotice,
-          sourceType: 'text'
-        };
-      }
-      
-      // Second pass: OCR on image attachments (if text body had no matches)
-      const imageAttachments = findImageAttachments(payload);
-      for (const att of imageAttachments) {
+      // 1. Check Attachments First (since university posters often carry the actual faculty roles)
+      const attachments = findAttachments(payload);
+
+      for (const att of attachments) {
         try {
           const attRes = await gmail.users.messages.attachments.get({
             userId: 'me',
@@ -120,25 +118,58 @@ export const scanRecentEmails = async (refreshToken, redirectUri) => {
           });
           
           if (attRes.data && attRes.data.data) {
-            // Convert base64url data to image buffer
-            const imageBuffer = Buffer.from(attRes.data.data, 'base64');
+            const buffer = Buffer.from(attRes.data.data, 'base64');
             
-            // Extract text from the attachment via local OCR
-            const ocrText = await extractTextFromImage(imageBuffer);
-            
-            if (ocrText && ocrText.trim().length > 0) {
-              const ocrResult = classifyEmail(subject, ocrText);
-              if (ocrResult.matchFound) {
+            if (att.type === 'image') {
+              // A. Try Gemini Vision if configured
+              const visionResult = await extractWithGeminiVision(buffer, att.mimeType, teacherInfo);
+              if (visionResult && visionResult.matchFound && visionResult.suggestedNotice) {
                 return {
-                  matchFound: true,
-                  suggestedNotice: ocrResult.suggestedNotice,
-                  sourceType: 'poster'
+                  ...visionResult,
+                  sourceType: 'poster',
+                  sourceFileName: att.filename
                 };
+              }
+
+              // B. Fallback to Local Tesseract OCR
+              const ocrText = await extractTextFromImage(buffer);
+              if (ocrText && ocrText.trim().length > 0) {
+                const ocrResult = classifyEmail(subject, ocrText, teacherInfo, 'poster');
+                if (ocrResult.matchFound) {
+                  return {
+                    ...ocrResult,
+                    sourceFileName: att.filename
+                  };
+                }
+              }
+            } else if (att.type === 'pdf') {
+              // PDF Document Extraction
+              const pdfText = await extractTextFromPDF(buffer);
+              if (pdfText && pdfText.trim().length > 0) {
+                const pdfResult = classifyEmail(subject, pdfText, teacherInfo, 'pdf');
+                if (pdfResult.matchFound) {
+                  return {
+                    ...pdfResult,
+                    sourceFileName: att.filename
+                  };
+                }
               }
             }
           }
-        } catch (ocrErr) {
-          console.error(`Failed to process attachment ${att.filename} via OCR:`, ocrErr);
+        } catch (attErr) {
+          console.error(`Failed to process attachment ${att.filename}:`, attErr.message);
+        }
+      }
+
+      // 2. Check Text Body if no attachments matched
+      const bodyText = getMessageBody(payload);
+      if (bodyText && bodyText.trim().length > 0) {
+        const textResult = classifyEmail(subject, bodyText, teacherInfo, 'text');
+        if (textResult.matchFound) {
+          return {
+            ...textResult,
+            sourceFileName: null
+          };
         }
       }
     }

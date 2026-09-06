@@ -65,9 +65,9 @@ router.get('/callback', requireAuth, async (req, res) => {
 // Scan inbox for notices (suggestion only - does not auto-save to status_notice)
 router.post('/scan', requireAuth, async (req, res) => {
   try {
-    // Retrieve encrypted refresh token
+    // Retrieve teacher profile including encrypted token and name details
     const result = await pool.query(
-      'SELECT email_oauth_refresh_token_enc, email_scan_enabled FROM teachers WHERE id = $1',
+      'SELECT name, email, department, email_oauth_refresh_token_enc, email_scan_enabled FROM teachers WHERE id = $1',
       [req.teacherId]
     );
     
@@ -75,15 +75,49 @@ router.post('/scan', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Teacher profile not found' });
     }
     
-    const { email_oauth_refresh_token_enc, email_scan_enabled } = result.rows[0];
+    const teacher = result.rows[0];
 
     // Check for mock testing parameter
-    if (req.query.mock === 'true') {
-      const mockResult = {
-        matchFound: true,
-        suggestedNotice: 'Away - Coordinating National Science Exhibition',
-        sourceType: 'text'
-      };
+    if (req.query.mock === 'true' || req.query.mock === 'poster' || req.query.mock === 'pdf') {
+      let mockResult;
+
+      if (req.query.mock === 'poster') {
+        mockResult = {
+          matchFound: true,
+          role: 'Faculty Coordinator',
+          eventName: 'National Symposium on Artificial Intelligence',
+          venue: 'Central Block Auditorium',
+          date: '15th - 16th October 2026',
+          suggestedNotice: 'Away - Coordinating National Symposium on Artificial Intelligence at Central Block Auditorium (15th - 16th October 2026)',
+          sourceType: 'poster',
+          sourceFileName: 'ai_symposium_poster.jpg',
+          confidence: 'high'
+        };
+      } else if (req.query.mock === 'pdf') {
+        mockResult = {
+          matchFound: true,
+          role: 'Convener',
+          eventName: 'Annual Faculty Research Conclave',
+          venue: 'Sky View Seminar Hall',
+          date: '28th November 2026',
+          suggestedNotice: 'Away - Convening Annual Faculty Research Conclave at Sky View Seminar Hall (28th November 2026)',
+          sourceType: 'pdf',
+          sourceFileName: 'Research_Conclave_Circular.pdf',
+          confidence: 'high'
+        };
+      } else {
+        mockResult = {
+          matchFound: true,
+          role: 'Coordinator',
+          eventName: 'National Science Exhibition',
+          venue: 'Main Campus Quadrangle',
+          date: 'Today',
+          suggestedNotice: 'Away - Coordinating National Science Exhibition at Main Campus Quadrangle (Today)',
+          sourceType: 'text',
+          sourceFileName: null,
+          confidence: 'medium'
+        };
+      }
       
       await pool.query(
         `INSERT INTO notice_scan_logs (teacher_id, source_type, match_found, suggested_notice)
@@ -99,16 +133,22 @@ router.post('/scan', requireAuth, async (req, res) => {
       return res.json(mockResult);
     }
     
-    if (!email_scan_enabled || !email_oauth_refresh_token_enc) {
+    if (!teacher.email_scan_enabled || !teacher.email_oauth_refresh_token_enc) {
       return res.status(400).json({ error: 'Email integration is not connected.' });
     }
     
     // Decrypt refresh token
-    const refreshToken = decrypt(email_oauth_refresh_token_enc);
+    const refreshToken = decrypt(teacher.email_oauth_refresh_token_enc);
     
-    // Perform scan
+    // Perform scan with teacher identity context
     const redirectUri = `${req.protocol}://${req.get('host')}/api/teachers/email/callback`;
-    const scanResult = await scanRecentEmails(refreshToken, redirectUri);
+    const teacherInfo = {
+      name: teacher.name,
+      email: teacher.email,
+      department: teacher.department
+    };
+    
+    const scanResult = await scanRecentEmails(refreshToken, redirectUri, teacherInfo);
     
     // Log scan event (no raw email text is saved)
     await pool.query(
