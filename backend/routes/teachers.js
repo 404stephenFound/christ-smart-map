@@ -3,13 +3,9 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import { createRequire } from 'module';
 import pool from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
-
-// pdf-parse is a CommonJS package — must be loaded via createRequire in ESM projects
-const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
+import { extractTextFromPDF } from '../services/posterOCR.js';
 
 const router = express.Router();
 
@@ -186,8 +182,7 @@ router.post('/upload-timetable', requireAuth, (req, res) => {
       if (req.file.mimetype === 'application/pdf') {
         try {
           const dataBuffer = fs.readFileSync(req.file.path);
-          const pdfData = await pdf(dataBuffer);
-          const text = pdfData.text || '';
+          const text = await extractTextFromPDF(dataBuffer);
           
           // Scan for course-like strings (e.g. CS101, CIVIL302, ADSE-204)
           const courseRegex = /\b[A-Za-z]{2,5}\s*[-_]?\s*\d{3}\b/g;
