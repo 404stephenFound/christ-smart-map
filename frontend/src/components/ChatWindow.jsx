@@ -168,15 +168,7 @@ const ChatWindow = ({ onViewTimetable, API_URL }) => {
               className="form-control"
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
-              style={{ 
-                width: '100%', 
-                padding: '0.5rem', 
-                fontSize: '0.85rem',
-                borderRadius: 'var(--radius-md)', 
-                background: 'var(--bg-surface)', 
-                border: '1px solid var(--border-color)', 
-                color: 'var(--text-primary)' 
-              }}
+              style={{ width: '100%' }}
             >
               <option value="ALL">All Departments</option>
               <option value="CSE">CSE</option>

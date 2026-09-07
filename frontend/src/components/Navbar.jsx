@@ -1,12 +1,7 @@
 import React from 'react';
-import { MessageSquare, User, LogOut, Compass, Sun, Moon } from 'lucide-react';
+import { MessageSquare, User, Compass, Sun, Moon } from 'lucide-react';
 
-const Navbar = ({ currentView, onViewChange, teacher, onLogout, theme, toggleTheme }) => {
-  const getInitials = (name) => {
-    if (!name) return 'T';
-    return name.replace(/(dr\.|prof\.|mr\.|ms\.|mrs\.)/gi, '').trim().charAt(0).toUpperCase();
-  };
-
+const Navbar = ({ currentView, onViewChange, teacher, theme, toggleTheme }) => {
   return (
     <header className="app-header">
       <div className="brand" onClick={() => onViewChange('chat')} style={{ cursor: 'pointer' }}>
@@ -15,19 +10,6 @@ const Navbar = ({ currentView, onViewChange, teacher, onLogout, theme, toggleThe
       </div>
       
       <div className="nav-right">
-        {/* Logged-In Teacher Identity Context */}
-        {teacher && (
-          <div className="user-context-card">
-            <div className="user-avatar">
-              {getInitials(teacher.name)}
-            </div>
-            <div className="user-details">
-              <span className="user-name">{teacher.name}</span>
-              <span className="user-role">{teacher.designation}</span>
-            </div>
-          </div>
-        )}
-
         {/* Theme Toggle Button */}
         <button 
           className="theme-toggle-btn" 
@@ -54,13 +36,6 @@ const Navbar = ({ currentView, onViewChange, teacher, onLogout, theme, toggleThe
             <button className="btn btn-secondary" onClick={() => onViewChange('chat')}>
               <MessageSquare size={16} />
               <span>Student Chat</span>
-            </button>
-          )}
-
-          {teacher && (
-            <button className="btn btn-danger" onClick={onLogout} title="Logout">
-              <LogOut size={16} />
-              <span>Logout</span>
             </button>
           )}
         </div>

@@ -115,7 +115,6 @@ function App() {
         currentView={currentView} 
         onViewChange={setCurrentView} 
         teacher={teacher}
-        onLogout={handleLogout}
         theme={theme}
         toggleTheme={toggleTheme}
       />
@@ -142,6 +141,7 @@ function App() {
             onUpdateTeacher={setTeacher} 
             showToast={showToast} 
             API_URL={API_URL}
+            onLogout={handleLogout}
           />
         )}
       </main>

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, CheckCircle, Clock, FileText, UploadCloud, MapPin, 
   Save, AlertCircle, Compass, Grid, BookOpen, Briefcase,
-  Mail, Sparkles, RefreshCw
+  Mail, Sparkles, RefreshCw, LogOut
 } from 'lucide-react';
 
-const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
+const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL, onLogout }) => {
   const [status, setStatus] = useState(teacher.status || 'AVAILABLE');
   const [statusNotice, setStatusNotice] = useState(teacher.status_notice || '');
   const [timetableFile, setTimetableFile] = useState(null);
@@ -42,6 +42,8 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
   const [scanning, setScanning] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [detectedNotice, setDetectedNotice] = useState(null);
+  const [showSourceEmail, setShowSourceEmail] = useState(false);
+  const [section, setSection] = useState('availability');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -121,6 +123,7 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
       if (response.ok) {
         if (data.matchFound && data.suggestedNotice) {
           setDetectedNotice(data);
+          setShowSourceEmail(false);
           setStatusNotice(data.suggestedNotice);
           showToast(`Event notice detected from ${data.sourceType || 'email'}! Review and apply.`, 'success');
         } else {
@@ -334,395 +337,482 @@ const TeacherDashboard = ({ teacher, onUpdateTeacher, showToast, API_URL }) => {
     { id: 'AWAY', title: 'Away / Gone Out', color: 'away' },
   ];
 
+  const SECTIONS = [
+    { id: 'availability', label: 'Availability', icon: CheckCircle },
+    { id: 'timetable', label: 'Timetable', icon: Grid },
+    { id: 'profile', label: 'Profile', icon: User },
+  ];
+
   return (
-    <div className="dashboard-grid">
-      {/* Left Column Panels */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        
-        {/* Status update panel */}
-        <section className="dashboard-panel">
-          <h2 className="panel-title">
-            <CheckCircle size={18} color="var(--primary)" />
-            <span>Update Availability Status</span>
-          </h2>
-          
-          <div className="status-grid">
-            {statusOptions.map((opt) => (
-              <div 
-                key={opt.id} 
-                className={`status-select-card ${opt.color} ${status === opt.id ? 'active' : ''}`}
-                onClick={() => handleStatusChange(opt.id)}
-              >
+    <div className="dashboard-layout">
+      <nav className="dashboard-nav" aria-label="Dashboard sections">
+        {SECTIONS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className={`dashboard-nav-item${section === id ? ' active' : ''}`}
+            onClick={() => setSection(id)}
+            aria-current={section === id ? 'page' : undefined}
+          >
+            <Icon size={20} />
+            <span className="dashboard-nav-label">{label}</span>
+          </button>
+        ))}
 
-                <span className="status-title">{opt.title}</span>
-              </div>
-            ))}
+        <div className="dashboard-nav-footer">
+          <button type="button" className="dashboard-nav-item" onClick={onLogout}>
+            <LogOut size={20} />
+            <span className="dashboard-nav-label">Sign out</span>
+          </button>
+
+          <div className="dashboard-nav-divider" />
+
+          <div className="dashboard-nav-user">
+            <span className="dashboard-nav-avatar">
+              {(teacher.name || 'T').replace(/(dr\.|prof\.|mr\.|ms\.|mrs\.)/gi, '').trim().charAt(0).toUpperCase()}
+            </span>
+            <span className="dashboard-nav-text">
+              <span className="dashboard-nav-label">{teacher.name}</span>
+              <span className="dashboard-nav-hint">{teacher.designation}</span>
+            </span>
           </div>
+        </div>
+      </nav>
 
-          <form onSubmit={handleNoticeSubmit} style={{ marginTop: '0.5rem' }}>
-            <div className="form-group">
-              <label>Custom Notice / Return Time</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  style={{ flex: 1 }}
-                  placeholder="e.g. Back at 3:00 PM, Away for PhD Viva"
-                  value={statusNotice}
-                  onChange={(e) => setStatusNotice(e.target.value)}
-                />
-                <button type="submit" className="btn btn-secondary" style={{ padding: '0.75rem' }}>
-                  <Save size={16} />
-                </button>
-              </div>
+      <div className="dashboard-content">
 
-              {/* Detected Notice Card Preview */}
-              {detectedNotice && (
-                <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(99, 102, 241, 0.08)', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: '700', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'var(--primary)', color: '#fff', textTransform: 'uppercase' }}>
-                        {detectedNotice.sourceType === 'poster' ? 'Poster Detected' : detectedNotice.sourceType === 'pdf' ? 'PDF Circular' : 'Email Notice'}
-                      </span>
-                      {detectedNotice.role && (
-                        <span style={{ fontSize: '0.7rem', fontWeight: '600', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-                          {detectedNotice.role}
+        {section === 'availability' && (
+          <section className="dashboard-panel">
+            <header className="section-head">
+              <span className="section-eyebrow">Availability</span>
+              <h2 className="section-title">Update Availability Status</h2>
+              <p className="section-desc">Set your current status and the notice students see.</p>
+            </header>
+            
+            <div className="status-grid">
+              {statusOptions.map((opt) => (
+                <div 
+                  key={opt.id} 
+                  className={`status-select-card ${opt.color} ${status === opt.id ? 'active' : ''}`}
+                  onClick={() => handleStatusChange(opt.id)}
+                >
+
+                  <span className="status-title">{opt.title}</span>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleNoticeSubmit} style={{ marginTop: '0.5rem' }}>
+              <div className="form-group">
+                <label>Custom Notice / Return Time</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    style={{ flex: 1 }}
+                    placeholder="e.g. Back at 3:00 PM, Away for PhD Viva"
+                    value={statusNotice}
+                    onChange={(e) => setStatusNotice(e.target.value)}
+                  />
+                  <button type="submit" className="btn btn-secondary" style={{ padding: '0.75rem' }}>
+                    <Save size={16} />
+                  </button>
+                </div>
+
+                {/* Detected Notice Card Preview */}
+                {detectedNotice && (
+                  <div className="inset-panel inset-panel-accent" style={{ marginTop: 'var(--space-3)' }}>
+                    <div className="row-between" style={{ marginBottom: 'var(--space-2)' }}>
+                      <div className="row-gap-2">
+                        <span className="badge badge-accent">
+                          {detectedNotice.sourceType === 'poster' ? 'Poster Detected' : detectedNotice.sourceType === 'pdf' ? 'PDF Circular' : 'Email Notice'}
                         </span>
-                      )}
+                        {detectedNotice.role && (
+                          <span className="badge badge-success">
+                            {detectedNotice.role}
+                          </span>
+                        )}
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => { setDetectedNotice(null); setShowSourceEmail(false); }} 
+                        className="link-button link-button-muted"
+                      >
+                        ✕ Dismiss
+                      </button>
                     </div>
-                    <button 
-                      type="button" 
-                      onClick={() => setDetectedNotice(null)} 
-                      style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.75rem', cursor: 'pointer' }}
-                    >
-                      ✕ Dismiss
-                    </button>
+                    {detectedNotice.sourceFileName && (
+                      <div className="meta-line-muted" style={{ marginBottom: 'var(--space-1)' }}>
+                        File: <strong>{detectedNotice.sourceFileName}</strong>
+                      </div>
+                    )}
+                    {detectedNotice.venue && (
+                      <div className="meta-line" style={{ marginBottom: 'var(--space-2)' }}>
+                        Venue: <strong>{detectedNotice.venue}</strong> {detectedNotice.date ? `| ${detectedNotice.date}` : ''}
+                      </div>
+                    )}
+                    {detectedNotice.sourceEmail && (
+                      <div style={{ marginTop: 'var(--space-2)' }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowSourceEmail(v => !v)}
+                          className="link-button"
+                        >
+                          {showSourceEmail ? '\u25be' : '\u25b8'} {showSourceEmail ? 'Hide source email' : 'View source email'}
+                        </button>
+
+                        {showSourceEmail && (
+                          <div className="inset-panel" style={{ marginTop: 'var(--space-2)', background: 'var(--bg-surface)' }}>
+                            {detectedNotice.sourceEmail.subject && (
+                              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)', fontWeight: 600, marginBottom: 'var(--space-1)' }}>
+                                {detectedNotice.sourceEmail.subject}
+                              </div>
+                            )}
+                            {detectedNotice.sourceEmail.from && (
+                              <div className="meta-line-muted">
+                                From: {detectedNotice.sourceEmail.from}
+                              </div>
+                            )}
+                            {detectedNotice.sourceEmail.date && (
+                              <div className="meta-line-muted" style={{ marginBottom: 'var(--space-2)' }}>
+                                {detectedNotice.sourceEmail.date}
+                              </div>
+                            )}
+
+                            {detectedNotice.sourceEmail.text ? (
+                              <pre className="source-text">
+                                {detectedNotice.sourceEmail.text}
+                              </pre>
+                            ) : (
+                              <div className="meta-line-muted" style={{ fontStyle: 'italic' }}>
+                                Text preview unavailable for this source.
+                              </div>
+                            )}
+
+                            <div className="meta-line-muted" style={{ marginTop: 'var(--space-2)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border-color)' }}>
+                              {detectedNotice.sourceType === 'poster'
+                                ? 'Text read from the attached poster image.'
+                                : detectedNotice.sourceType === 'pdf'
+                                  ? 'Text extracted from the attached PDF circular.'
+                                  : 'Text from the email body.'} Shown for review only \u2014 it is never saved.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="row-gap-2" style={{ marginTop: 'var(--space-3)' }}>
+                      <button type="submit" className="btn btn-primary btn-sm">
+                        Apply & Update Notice
+                      </button>
+                    </div>
                   </div>
-                  {detectedNotice.sourceFileName && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
-                      File: <strong>{detectedNotice.sourceFileName}</strong>
+                )}
+
+                {/* Google Email Scan Panel */}
+                <div className="inset-panel row-between" style={{ marginTop: 'var(--space-3)' }}>
+                  <div className="row-gap-2">
+                    <Mail size={16} color="var(--primary)" />
+                    <span className="meta-line">
+                      {teacher.email_scan_enabled ? 'Google Email Linked' : 'Auto-detect from email/posters'}
+                    </span>
+                  </div>
+                  
+                  {teacher.email_scan_enabled ? (
+                    <div className="row-gap-2">
+                      <button 
+                        type="button" 
+                        onClick={handleScanEmail} 
+                        disabled={scanning} 
+                        className="btn btn-secondary btn-sm" 
+                        style={{ borderStyle: 'dashed', borderColor: 'var(--primary)', background: 'transparent', color: 'var(--primary)' }}
+                      >
+                        <Sparkles size={12} style={scanning ? { animation: 'spin 1.5s linear infinite' } : {}} />
+                        {scanning ? 'Scanning...' : 'Scan Inbox & Posters'}
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={handleDisconnectEmail} 
+                        className="link-button" style={{ color: 'var(--color-away)' }}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <button 
+                        type="button" 
+                        onClick={handleConnectEmail} 
+                        disabled={connecting} 
+                        className="btn btn-secondary btn-sm"
+                      >
+                        {connecting ? 'Connecting...' : 'Connect Gmail'}
+                      </button>
                     </div>
                   )}
-                  {detectedNotice.venue && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
-                      Venue: <strong>{detectedNotice.venue}</strong> {detectedNotice.date ? `| ${detectedNotice.date}` : ''}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
-                    <button 
-                      type="submit" 
-                      className="btn btn-primary" 
-                      style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', borderRadius: '6px' }}
-                    >
-                      Apply & Update Notice
-                    </button>
-                  </div>
+                </div>
+
+                <span className="meta-line-muted" style={{ marginTop: 'var(--space-2)', display: 'block' }}>
+                  This notice will be served by the AI chatbot to students querying about you.
+                </span>
+              </div>
+            </form>
+          </section>
+        )}
+
+        {section === 'timetable' && (
+          <>
+            <section className="dashboard-panel">
+              <header className="section-head">
+              <span className="section-eyebrow">Timetable</span>
+              <h2 className="section-title">Upload Timetable File</h2>
+              <p className="section-desc">PDF or image, up to 5MB. Course codes are read automatically.</p>
+            </header>
+
+              <label className="file-uploader">
+                <input 
+                  type="file" 
+                  style={{ display: 'none' }} 
+                  accept=".pdf, .png, .jpg, .jpeg"
+                  onChange={handleFileChange}
+                />
+                <UploadCloud size={32} />
+                <div>
+                  <p style={{ fontWeight: '600', fontSize: '0.9rem' }}>Choose or drag timetable file</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    Accepts PDF, PNG, JPG, JPEG (Max 5MB)
+                  </p>
+                </div>
+              </label>
+
+              {timetableFile && (
+                <div className="uploaded-file-info">
+                  <span className="uploaded-file-name">
+                    <FileText size={16} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+                      {timetableFile.name}
+                    </span>
+                  </span>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px' }}
+                    onClick={handleUploadTimetable}
+                    disabled={uploading}
+                  >
+                    {uploading ? 'Uploading...' : 'Save File'}
+                  </button>
                 </div>
               )}
 
-              {/* Google Email Scan Panel */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', padding: '0.6rem 0.8rem', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Mail size={16} color="var(--primary)" />
-                  <span style={{ fontSize: '0.8rem', fontWeight: '500', color: 'var(--text-secondary)' }}>
-                    {teacher.email_scan_enabled ? 'Google Email Linked' : 'Auto-detect from email/posters'}
+              {teacher.timetable_url && (
+                <div className="uploaded-file-info" style={{ background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.15)' }}>
+                  <span className="uploaded-file-name" style={{ color: 'var(--text-primary)' }}>
+                    <CheckCircle size={16} color="var(--color-available)" />
+                    <span>Active Timetable Uploaded</span>
                   </span>
+                  <a 
+                    href={`${API_URL.replace('/api', '')}${teacher.timetable_url}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px', textDecoration: 'none' }}
+                  >
+                    View File
+                  </a>
                 </div>
-                
-                {teacher.email_scan_enabled ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <button 
-                      type="button" 
-                      onClick={handleScanEmail} 
-                      disabled={scanning} 
-                      className="btn btn-secondary" 
-                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px dashed var(--primary)', background: 'transparent', color: 'var(--primary)' }}
-                    >
-                      <Sparkles size={12} style={scanning ? { animation: 'spin 1.5s linear infinite' } : {}} />
-                      {scanning ? 'Scanning...' : 'Scan Inbox & Posters'}
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={handleDisconnectEmail} 
-                      style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', padding: '0.25rem' }}
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    <button 
-                      type="button" 
-                      onClick={handleConnectEmail} 
-                      disabled={connecting} 
-                      className="btn btn-secondary" 
-                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', borderRadius: '6px' }}
-                    >
-                      {connecting ? 'Connecting...' : 'Connect Gmail'}
-                    </button>
-                  </div>
-                )}
+              )}
+            </section>
+
+            <section className="dashboard-panel">
+              <header className="section-head">
+              <span className="section-eyebrow">Timetable</span>
+              <h2 className="section-title">Digital Weekly Timetable Grid</h2>
+              <p className="section-desc">Optional. Students can ask the bot if you are free at a given period.</p>
+            </header>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-0.75rem', marginBottom: '0.5rem', display: 'block' }}>
+                Optional: Enter your period schedules. Students can ask the bot if you are free at specific periods.
+              </span>
+
+              <div className="schedule-grid-container">
+                <table className="schedule-table">
+                  <thead>
+                    <tr>
+                      <th>Period</th>
+                      <th>Mon</th>
+                      <th>Tue</th>
+                      <th>Wed</th>
+                      <th>Thu</th>
+                      <th>Fri</th>
+                      <th>Sat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { id: 'P1', time: '09:00 - 10:00' },
+                      { id: 'P2', time: '10:00 - 11:00' },
+                      { id: 'P3', time: '11:00 - 12:00' },
+                      { id: 'Lunch', time: '12:00 - 01:00' },
+                      { id: 'P4', time: '01:00 - 02:00' },
+                      { id: 'P5', time: '02:00 - 03:00' },
+                      { id: 'P6', time: '03:00 - 04:00' }
+                    ].map((p) => (
+                      <tr key={p.id}>
+                        <td style={{ fontWeight: '600', color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: '1.2' }}>
+                          <div>{p.id}</div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 'normal', marginTop: '0.15rem' }}>{p.time}</div>
+                        </td>
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => {
+                          const isHalfDaySat = day === 'Sat' && (p.id === 'P4' || p.id === 'P5' || p.id === 'P6');
+                          return (
+                            <td key={day}>
+                              {p.id === 'Lunch' ? (
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>LUNCH</span>
+                              ) : isHalfDaySat ? (
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>HALF DAY</span>
+                              ) : (
+                                <input 
+                                  type="text" 
+                                  className="schedule-input"
+                                  placeholder="Free / Class"
+                                  value={schedule[day]?.[p.id] || ''}
+                                  onChange={(e) => handleScheduleCellChange(day, p.id, e.target.value)}
+                                />
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'block' }}>
-                This notice will be served by the AI chatbot to students querying about you.
-              </span>
-            </div>
-          </form>
-        </section>
-
-        {/* Timetable File Upload Panel */}
-        <section className="dashboard-panel">
-          <h2 className="panel-title">
-            <UploadCloud size={18} color="var(--primary)" />
-            <span>Upload Timetable File</span>
-          </h2>
-
-          <label className="file-uploader">
-            <input 
-              type="file" 
-              style={{ display: 'none' }} 
-              accept=".pdf, .png, .jpg, .jpeg"
-              onChange={handleFileChange}
-            />
-            <UploadCloud size={32} />
-            <div>
-              <p style={{ fontWeight: '600', fontSize: '0.9rem' }}>Choose or drag timetable file</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                Accepts PDF, PNG, JPG, JPEG (Max 5MB)
-              </p>
-            </div>
-          </label>
-
-          {timetableFile && (
-            <div className="uploaded-file-info">
-              <span className="uploaded-file-name">
-                <FileText size={16} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-                  {timetableFile.name}
-                </span>
-              </span>
               <button 
                 className="btn btn-primary" 
-                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px' }}
-                onClick={handleUploadTimetable}
-                disabled={uploading}
+                style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }} 
+                onClick={handleSaveSchedule}
+                disabled={savingSchedule}
               >
-                {uploading ? 'Uploading...' : 'Save File'}
+                {savingSchedule ? 'Saving Schedule Grid...' : 'Save Schedule Grid'}
               </button>
-            </div>
-          )}
+            </section>
+          </>
+        )}
 
-          {teacher.timetable_url && (
-            <div className="uploaded-file-info" style={{ background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.15)' }}>
-              <span className="uploaded-file-name" style={{ color: 'var(--text-primary)' }}>
-                <CheckCircle size={16} color="var(--color-available)" />
-                <span>Active Timetable Uploaded</span>
-              </span>
-              <a 
-                href={`${API_URL.replace('/api', '')}${teacher.timetable_url}`} 
-                target="_blank" 
-                rel="noreferrer"
-                className="btn btn-secondary" 
-                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '6px', textDecoration: 'none' }}
-              >
-                View File
-              </a>
-            </div>
-          )}
-        </section>
-      </div>
+        {section === 'profile' && (
+          <section className="dashboard-panel">
+            <header className="section-head">
+              <span className="section-eyebrow">Profile</span>
+              <h2 className="section-title">Profile Settings</h2>
+              <p className="section-desc">Your name, cabin and department as students see them.</p>
+            </header>
 
-      {/* Right Column Panels */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        
-        {/* Profile editor panel */}
-        <section className="dashboard-panel">
-          <h2 className="panel-title">
-            <User size={18} color="var(--primary)" />
-            <span>Profile Settings</span>
-          </h2>
-
-          <form onSubmit={handleProfileSubmit} className="auth-form" style={{ gap: '1rem' }}>
-            <div className="form-group">
-              <label>Full Name</label>
-              <input 
-                type="text" 
-                className="form-control"
-                value={profile.name}
-                onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div className="form-row">
+            <form onSubmit={handleProfileSubmit} className="auth-form" style={{ gap: '1rem' }}>
               <div className="form-group">
-                <label>Designation</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Briefcase size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
-                  <select 
-                    className="form-control"
-                    style={{ paddingLeft: '2.25rem', width: '100%' }}
-                    value={profile.designation}
-                    onChange={(e) => setProfile(prev => ({ ...prev, designation: e.target.value }))}
-                    required
-                  >
-                    <option value="Professor">Professor</option>
-                    <option value="Associate Professor">Associate Professor</option>
-                    <option value="Assistant Professor">Assistant Professor</option>
-                    <option value="Dean">Dean</option>
-                    <option value="HOD">HOD</option>
-                  </select>
+                <label>Full Name</label>
+                <input 
+                  type="text" 
+                  className="form-control"
+                  value={profile.name}
+                  onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Designation</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Briefcase size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
+                    <select 
+                      className="form-control"
+                      style={{ paddingLeft: '2.25rem', width: '100%' }}
+                      value={profile.designation}
+                      onChange={(e) => setProfile(prev => ({ ...prev, designation: e.target.value }))}
+                      required
+                    >
+                      <option value="Professor">Professor</option>
+                      <option value="Associate Professor">Associate Professor</option>
+                      <option value="Assistant Professor">Assistant Professor</option>
+                      <option value="Dean">Dean</option>
+                      <option value="HOD">HOD</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Block / Building</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Compass size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
+                    <select 
+                      className="form-control"
+                      style={{ paddingLeft: '2.25rem', width: '100%' }}
+                      value={profile.block}
+                      onChange={(e) => setProfile(prev => ({ ...prev, block: e.target.value }))}
+                      required
+                    >
+                      <option value="Block 1">Block 1</option>
+                      <option value="Block 2">Block 2</option>
+                      <option value="Block 3">Block 3</option>
+                      <option value="Block 4">Block 4</option>
+                      <option value="Block 5">Block 5</option>
+                      <option value="Block 6">Block 6</option>
+                      <option value="Architecture Block">Architecture Block</option>
+                      <option value="Devdan Block">Devdan Block</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Block / Building</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Compass size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
-                  <select 
-                    className="form-control"
-                    style={{ paddingLeft: '2.25rem', width: '100%' }}
-                    value={profile.block}
-                    onChange={(e) => setProfile(prev => ({ ...prev, block: e.target.value }))}
-                    required
-                  >
-                    <option value="Block 1">Block 1</option>
-                    <option value="Block 2">Block 2</option>
-                    <option value="Block 3">Block 3</option>
-                    <option value="Block 4">Block 4</option>
-                    <option value="Block 5">Block 5</option>
-                    <option value="Block 6">Block 6</option>
-                    <option value="Architecture Block">Architecture Block</option>
-                    <option value="Devdan Block">Devdan Block</option>
-                  </select>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Room / Cabin Number</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <MapPin size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 402, Lab 1"
+                      className="form-control"
+                      style={{ paddingLeft: '2.25rem', width: '100%' }}
+                      value={profile.room}
+                      onChange={(e) => setProfile(prev => ({ ...prev, room: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Department</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Briefcase size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
+                    <select 
+                      className="form-control"
+                      style={{ paddingLeft: '2.25rem', width: '100%' }}
+                      value={profile.department}
+                      onChange={(e) => setProfile(prev => ({ ...prev, department: e.target.value }))}
+                      required
+                    >
+                      <option value="CSE">CSE</option>
+                      <option value="ADSE">ADSE</option>
+                      <option value="Electronics">Electronics</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Mechanical">Mechanical</option>
+                      <option value="Robotics & Mechatronics">Robotics & Mechatronics</option>
+                      <option value="Psychology">Psychology</option>
+                      <option value="BBA">BBA</option>
+                      <option value="Sciences & Humanities">Sciences & Humanities</option>
+                      <option value="Civil">Civil</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Room / Cabin Number</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <MapPin size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 402, Lab 1"
-                    className="form-control"
-                    style={{ paddingLeft: '2.25rem', width: '100%' }}
-                    value={profile.room}
-                    onChange={(e) => setProfile(prev => ({ ...prev, room: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Department</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Briefcase size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
-                  <select 
-                    className="form-control"
-                    style={{ paddingLeft: '2.25rem', width: '100%' }}
-                    value={profile.department}
-                    onChange={(e) => setProfile(prev => ({ ...prev, department: e.target.value }))}
-                    required
-                  >
-                    <option value="CSE">CSE</option>
-                    <option value="ADSE">ADSE</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Mechanical">Mechanical</option>
-                    <option value="Robotics & Mechatronics">Robotics & Mechatronics</option>
-                    <option value="Psychology">Psychology</option>
-                    <option value="BBA">BBA</option>
-                    <option value="Sciences & Humanities">Sciences & Humanities</option>
-                    <option value="Civil">Civil</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={updatingProfile}>
-              {updatingProfile ? 'Saving profile...' : 'Save Profile Details'}
-            </button>
-          </form>
-        </section>
-
-        {/* Digital Grid Schedule builder */}
-        <section className="dashboard-panel">
-          <h2 className="panel-title">
-            <Grid size={18} color="var(--primary)" />
-            <span>Digital Weekly Timetable Grid</span>
-          </h2>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-0.75rem', marginBottom: '0.5rem', display: 'block' }}>
-            Optional: Enter your period schedules. Students can ask the bot if you are free at specific periods.
-          </span>
-
-          <div className="schedule-grid-container">
-            <table className="schedule-table">
-              <thead>
-                <tr>
-                  <th>Period</th>
-                  <th>Mon</th>
-                  <th>Tue</th>
-                  <th>Wed</th>
-                  <th>Thu</th>
-                  <th>Fri</th>
-                  <th>Sat</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { id: 'P1', time: '09:00 - 10:00' },
-                  { id: 'P2', time: '10:00 - 11:00' },
-                  { id: 'P3', time: '11:00 - 12:00' },
-                  { id: 'Lunch', time: '12:00 - 01:00' },
-                  { id: 'P4', time: '01:00 - 02:00' },
-                  { id: 'P5', time: '02:00 - 03:00' },
-                  { id: 'P6', time: '03:00 - 04:00' }
-                ].map((p) => (
-                  <tr key={p.id}>
-                    <td style={{ fontWeight: '600', color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: '1.2' }}>
-                      <div>{p.id}</div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 'normal', marginTop: '0.15rem' }}>{p.time}</div>
-                    </td>
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => {
-                      const isHalfDaySat = day === 'Sat' && (p.id === 'P4' || p.id === 'P5' || p.id === 'P6');
-                      return (
-                        <td key={day}>
-                          {p.id === 'Lunch' ? (
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>LUNCH</span>
-                          ) : isHalfDaySat ? (
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>HALF DAY</span>
-                          ) : (
-                            <input 
-                              type="text" 
-                              className="schedule-input"
-                              placeholder="Free / Class"
-                              value={schedule[day]?.[p.id] || ''}
-                              onChange={(e) => handleScheduleCellChange(day, p.id, e.target.value)}
-                            />
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <button 
-            className="btn btn-primary" 
-            style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }} 
-            onClick={handleSaveSchedule}
-            disabled={savingSchedule}
-          >
-            {savingSchedule ? 'Saving Schedule Grid...' : 'Save Schedule Grid'}
-          </button>
-        </section>
-
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={updatingProfile}>
+                {updatingProfile ? 'Saving profile...' : 'Save Profile Details'}
+              </button>
+            </form>
+          </section>
+        )}
       </div>
     </div>
   );
