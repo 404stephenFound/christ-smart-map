@@ -11,6 +11,34 @@ export const getOAuth2Client = (redirectUri) => {
   );
 };
 
+// Named/numeric HTML entities leak into notices if left encoded (e.g. "&ndash").
+const NAMED_ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  ndash: '-', mdash: '-', lsquo: "'", rsquo: "'", ldquo: '"', rdquo: '"',
+  hellip: '...', bull: '*', middot: '-', reg: '(R)', copy: '(c)', trade: '(TM)',
+};
+
+export const decodeHtmlEntities = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-z]+);/gi, (m, name) => {
+      const key = name.toLowerCase();
+      return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, key) ? NAMED_ENTITIES[key] : m;
+    });
+};
+
+/** Caps text sent back for human review; nothing here is ever persisted. */
+const REVIEW_TEXT_LIMIT = 4000;
+const capForReview = (text) => {
+  if (!text) return null;
+  const clean = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return clean.length > REVIEW_TEXT_LIMIT
+    ? clean.slice(0, REVIEW_TEXT_LIMIT) + '\n\n[... truncated for display ...]'
+    : clean;
+};
+
 // Recursive helper to extract plain text body from email message parts
 function getMessageBody(part) {
   let body = '';
@@ -19,8 +47,14 @@ function getMessageBody(part) {
     if (part.mimeType === 'text/plain') {
       body += decoded + '\n';
     } else if (part.mimeType === 'text/html') {
-      // Strip HTML tags to extract clean text
-      const plain = decoded.replace(/<[^>]*>/g, ' ');
+      // Strip HTML tags, then decode entities, to extract clean readable text
+      const plain = decodeHtmlEntities(
+        decoded
+          .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/(p|div|tr|li|h[1-6])>/gi, '\n')
+          .replace(/<[^>]*>/g, ' ')
+      );
       body += plain + '\n';
     }
   }
@@ -103,8 +137,16 @@ export const scanRecentEmails = async (refreshToken, redirectUri, teacherInfo = 
       
       // Extract Subject from headers
       const headers = payload.headers || [];
-      const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject');
-      const subject = subjectHeader ? subjectHeader.value : '';
+      const headerValue = (name) =>
+        (headers.find(h => h.name.toLowerCase() === name) || {}).value || '';
+      const subject = headerValue('subject');
+
+      // Returned to the teacher for review only - never written to the database.
+      const sourceMeta = {
+        subject,
+        from: headerValue('from'),
+        date: headerValue('date'),
+      };
       
       // 1. Check Attachments First (since university posters often carry the actual faculty roles)
       const attachments = findAttachments(payload);
@@ -127,7 +169,8 @@ export const scanRecentEmails = async (refreshToken, redirectUri, teacherInfo = 
                 return {
                   ...visionResult,
                   sourceType: 'poster',
-                  sourceFileName: att.filename
+                  sourceFileName: att.filename,
+                  sourceEmail: { ...sourceMeta, text: null }
                 };
               }
 
@@ -138,7 +181,8 @@ export const scanRecentEmails = async (refreshToken, redirectUri, teacherInfo = 
                 if (ocrResult.matchFound) {
                   return {
                     ...ocrResult,
-                    sourceFileName: att.filename
+                    sourceFileName: att.filename,
+                    sourceEmail: { ...sourceMeta, text: capForReview(ocrText) }
                   };
                 }
               }
@@ -150,7 +194,8 @@ export const scanRecentEmails = async (refreshToken, redirectUri, teacherInfo = 
                 if (pdfResult.matchFound) {
                   return {
                     ...pdfResult,
-                    sourceFileName: att.filename
+                    sourceFileName: att.filename,
+                    sourceEmail: { ...sourceMeta, text: capForReview(pdfText) }
                   };
                 }
               }
@@ -168,7 +213,8 @@ export const scanRecentEmails = async (refreshToken, redirectUri, teacherInfo = 
         if (textResult.matchFound) {
           return {
             ...textResult,
-            sourceFileName: null
+            sourceFileName: null,
+            sourceEmail: { ...sourceMeta, text: capForReview(bodyText) }
           };
         }
       }
